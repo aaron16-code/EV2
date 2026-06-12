@@ -1,0 +1,53 @@
+# ============================================================
+# STAGE 1: Build
+# Usa Maven con Java 17 para compilar el proyecto Spring Boot
+# y generar el archivo .jar ejecutable
+# ============================================================
+FROM eclipse-temurin:17-jdk-alpine AS builder
+
+WORKDIR /app
+
+# Copiamos primero solo los archivos de configuración de Maven
+# Si pom.xml no cambia, Docker reutiliza el cache de dependencias
+COPY pom.xml .
+COPY mvnw .
+COPY .mvn .mvn
+
+# Descargamos dependencias sin compilar el código fuente
+# Esto permite cachear las dependencias en una capa separada
+RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
+
+# Copiamos el código fuente
+COPY src ./src
+
+# Compilamos y empaquetamos, saltando los tests
+# Los tests se ejecutan en el pipeline CI/CD por separado
+RUN ./mvnw package -DskipTests -B
+
+# ============================================================
+# STAGE 2: Producción
+# Imagen final liviana solo con JRE (no necesita JDK completo)
+# Ejecuta con usuario no root por seguridad
+# ============================================================
+FROM eclipse-temurin:17-jre-alpine AS production
+
+WORKDIR /app
+
+# Creamos un usuario no root para ejecutar la aplicación
+# Buena práctica de seguridad: evita escalada de privilegios
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Copiamos únicamente el .jar generado en el stage anterior
+COPY --from=builder /app/target/*.jar app.jar
+
+# Asignamos el .jar al usuario no root
+RUN chown appuser:appgroup app.jar
+
+# Cambiamos al usuario no root
+USER appuser
+
+# Puerto que expone Spring Boot por defecto
+EXPOSE 8080
+
+# Ejecutamos el .jar con configuraciones de memoria optimizadas para contenedor
+ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
