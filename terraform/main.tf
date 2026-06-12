@@ -126,7 +126,7 @@ resource "aws_route_table_association" "backend_assoc" {
 
 # SG Frontend: HTTP/HTTPS público + SSH para CI/CD
 resource "aws_security_group" "sg_frontend" {
-  name        = "sg-frontend-ep2"
+  name = "frontend-ep2-sg"
   description = "Trafico web publico hacia el contenedor Frontend"
   vpc_id      = aws_vpc.vpc_innovatech.id
 
@@ -154,13 +154,6 @@ resource "aws_security_group" "sg_frontend" {
     description = "SSH para deploy via GitHub Actions"
   }
 
-  ingress {
-    from_port   = var.puerto_frontend
-    to_port     = var.puerto_frontend
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Puerto del contenedor Frontend"
-  }
 
   egress {
     from_port   = 0
@@ -174,7 +167,7 @@ resource "aws_security_group" "sg_frontend" {
 
 # SG Backend: solo acepta tráfico DESDE el SG Frontend (subred privada)
 resource "aws_security_group" "sg_backend" {
-  name        = "sg-backend-ep2"
+  name = "backend-ep2-sg"
   description = "Trafico al Backend solo desde el Frontend"
   vpc_id      = aws_vpc.vpc_innovatech.id
 
