@@ -1,0 +1,52 @@
+name: CI/CD Despachos - Frontend
+
+on:
+  push:
+    branches: [ "deploy" ]
+
+jobs:
+  build-push-deploy-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Descarga el código del repositorio
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      # 2. Configura las credenciales de AWS usando los secrets del repositorio
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # 3. Inicia sesión en Amazon ECR desde el runner de GitHub Actions
+      - name: Login en Amazon ECR (runner)
+        uses: aws-actions/amazon-ecr-login@v1
+
+      # 4. Construye la imagen Docker del Frontend y la sube a ECR
+      - name: Build imagen Frontend y push a ECR
+        run: |
+          docker build -t despachos-frontend .
+          docker tag despachos-frontend:latest ${{ secrets.ECR_REPO_URL_FRONTEND }}:latest
+          docker push ${{ secrets.ECR_REPO_URL_FRONTEND }}:latest
+
+      # 5. Despliega la nueva imagen en la instancia EC2 del Frontend usando SSM
+      #    SSM permite ejecutar comandos en EC2 sin necesidad de abrir el puerto SSH
+      - name: Desplegar Frontend en EC2 vía SSM
+        run: |
+          aws ssm send-command \
+            --instance-ids ${{ secrets.EC2_FRONTEND_INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Actualizar despachos-frontend desde ECR" \
+            --parameters '{"commands":[
+              "set -e",
+              "aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}",
+              "docker pull ${{ secrets.ECR_REPO_URL_FRONTEND }}:latest",
+              "docker stop despachos-frontend || true",
+              "docker rm despachos-frontend || true",
+              "docker run -d --name despachos-frontend -p 80:80 --restart unless-stopped ${{ secrets.ECR_REPO_URL_FRONTEND }}:latest"
+            ]}' \
+            --output text
