@@ -1,0 +1,60 @@
+name: CI/CD Despachos - Backend Despachos
+
+on:
+  push:
+    branches: [ "deploy" ]
+
+jobs:
+  build-push-deploy-backend-despachos:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Descarga el código del repositorio
+      - name: Checkout código
+        uses: actions/checkout@v3
+
+      # 2. Configura Java 17 necesario para compilar Spring Boot con Maven
+      - name: Configurar Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 3. Configura las credenciales de AWS usando los secrets del repositorio
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # 4. Inicia sesión en Amazon ECR desde el runner de GitHub Actions
+      - name: Login en Amazon ECR (runner)
+        uses: aws-actions/amazon-ecr-login@v1
+
+      # 5. Construye la imagen Docker del Backend Despachos y la sube a ECR
+      #    El Dockerfile debe estar en la raíz del repositorio backend
+      - name: Build imagen Backend Despachos y push a ECR
+        run: |
+          docker build -t despachos-backend .
+          docker tag despachos-backend:latest ${{ secrets.ECR_REPO_URL_BACKEND_DESPACHOS }}:latest
+          docker push ${{ secrets.ECR_REPO_URL_BACKEND_DESPACHOS }}:latest
+
+      # 6. Despliega la nueva imagen en la instancia EC2 del Backend usando SSM
+      #    Se conecta a la BD mediante variable de entorno SPRING_DATASOURCE_URL
+      - name: Desplegar Backend Despachos en EC2 vía SSM
+        run: |
+          aws ssm send-command \
+            --instance-ids ${{ secrets.EC2_BACKEND_INSTANCE_ID }} \
+            --document-name "AWS-RunShellScript" \
+            --comment "Actualizar despachos-backend desde ECR" \
+            --parameters '{"commands":[
+              "set -e",
+              "aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}",
+              "docker pull ${{ secrets.ECR_REPO_URL_BACKEND_DESPACHOS }}:latest",
+              "docker stop despachos-backend || true",
+              "docker rm despachos-backend || true",
+              "docker run -d --name despachos-backend -p 8080:8080 --restart unless-stopped -e SPRING_DATASOURCE_URL=${{ secrets.DB_URL }} -e SPRING_DATASOURCE_USERNAME=${{ secrets.DB_USERNAME }} -e SPRING_DATASOURCE_PASSWORD=${{ secrets.DB_PASSWORD }} ${{ secrets.ECR_REPO_URL_BACKEND_DESPACHOS }}:latest"
+            ]}' \
+            --output text

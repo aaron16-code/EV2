@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+
+  # Base de datos MySQL para Ventas
+  mysql-ventas:
+    image: mysql:8.0
+    container_name: mysql-ventas
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "3307:3306"
+    # Named volume para persistencia de datos
+    # Elegimos named volume sobre bind mount porque es gestionado
+    # por Docker, más portable y seguro en entornos de producción
+    volumes:
+      - mysql-ventas-data:/var/lib/mysql
+    networks:
+      - red-ventas
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend Spring Boot Ventas
+  backend-ventas:
+    image: ${ECR_REPO_URL_BACKEND_VENTAS}:latest
+    container_name: ventas-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DB_ENDPOINT: mysql-ventas
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      mysql-ventas:
+        condition: service_healthy
+    networks:
+      - red-ventas
+
+# Named volume para persistencia de MySQL
+volumes:
+  mysql-ventas-data:
+    driver: local
+
+# Red interna para comunicación entre contenedores
+networks:
+  red-ventas:
+    driver: bridge
