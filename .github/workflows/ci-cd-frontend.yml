@@ -11,7 +11,7 @@ jobs:
     steps:
       # 1. Descarga el código del repositorio
       - name: Checkout código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # 2. Configura las credenciales de AWS usando los secrets del repositorio
       - name: Configurar credenciales AWS
@@ -24,17 +24,17 @@ jobs:
 
       # 3. Inicia sesión en Amazon ECR desde el runner de GitHub Actions
       - name: Login en Amazon ECR (runner)
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
 
       # 4. Construye la imagen Docker del Frontend y la sube a ECR
       - name: Build imagen Frontend y push a ECR
         run: |
+          cd front_despacho
           docker build -t despachos-frontend .
           docker tag despachos-frontend:latest ${{ secrets.ECR_REPO_URL_FRONTEND }}:latest
           docker push ${{ secrets.ECR_REPO_URL_FRONTEND }}:latest
 
       # 5. Despliega la nueva imagen en la instancia EC2 del Frontend usando SSM
-      #    SSM permite ejecutar comandos en EC2 sin necesidad de abrir el puerto SSH
       - name: Desplegar Frontend en EC2 vía SSM
         run: |
           aws ssm send-command \
