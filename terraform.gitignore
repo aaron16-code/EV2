@@ -1,0 +1,6 @@
+.terraform/
+.terraform.lock.hcl
+.tfstate
+.tfstate.backup
+clave-ep2.pem
+*.exe
