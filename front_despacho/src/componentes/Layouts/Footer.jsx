@@ -21,7 +21,7 @@ function Footer() {
               <ul className="text-white font-medium">
                 <li className="mb-4">
                   <a href="#" className="hover:underline">
-                    Recomendaciones embalaje hola
+                    Recomendaciones embalaje
                   </a>
                 </li>
                 <li>
