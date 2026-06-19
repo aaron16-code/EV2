@@ -16,7 +16,7 @@ function Footer() {
           <div className="grid grid-cols-2 gap-8 sm:gap-6 sm:grid-cols-3">
             <div>
               <h2 className="mb-6 text-sm font-semibold text-white uppercase dark:text-white">
-                Condiciones servicio
+                Condiciones servicio Hola
               </h2>
               <ul className="text-white font-medium">
                 <li className="mb-4">
