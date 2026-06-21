@@ -27,9 +27,11 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v1
 
       # 4. Construye la imagen Docker del Frontend y la sube a ECR
+      #    Se especifica -f para apuntar al Dockerfile dentro de front_despacho/
+      #    y el contexto de build también es front_despacho/ para que COPY funcione correctamente
       - name: Build imagen Frontend y push a ECR
         run: |
-          docker build -t despachos-frontend .
+          docker build -t despachos-frontend -f front_despacho/Dockerfile front_despacho/
           docker tag despachos-frontend:latest ${{ secrets.ECR_REPO_URL_FRONTEND }}:latest
           docker push ${{ secrets.ECR_REPO_URL_FRONTEND }}:latest
 
