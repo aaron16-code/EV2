@@ -30,7 +30,7 @@ jobs:
       - name: Build imagen Frontend y push a ECR
         run: |
           cd front_despacho
-          docker build -t despachos-frontend .
+          docker build --no-cache -t despachos-frontend .
           docker tag despachos-frontend:latest ${{ secrets.ECR_REPO_URL_FRONTEND }}:latest
           docker push ${{ secrets.ECR_REPO_URL_FRONTEND }}:latest
 
